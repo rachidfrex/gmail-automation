@@ -17,7 +17,7 @@ async function automateGmail(config) {
     // Send batch emails from emailCompose.json
     console.log(chalk.blue('\n📨 Starting batch email sending...'));
     await sendBatchEmails(page);
-
+ 
     // Mark emails as read
     console.log(chalk.blue('\n📨 Starting to mark emails as read...'));
     await markAsRead(page, config.numberOfEmails);

@@ -16,7 +16,7 @@ async function getLatestEmails(page, numberOfEmails = 5) {
                       row.querySelector('.zF')?.innerText || 'Unknown';
         
         const subject = row.querySelector('.bog span')?.innerText || 'No subject';
-        
+         
         const preview = row.querySelector('.y2')?.innerText
           .replace(/^\s*-\s*/, '') || 'No preview';
         
