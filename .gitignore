@@ -1,0 +1,15 @@
+node_modules/
+*.png
+latest_email.json
+./emails.json
+#env file
+*.env
+# Mac OS
+.DS_Store
+# WebStorm
+.idea/
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*

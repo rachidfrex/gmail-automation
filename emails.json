@@ -1,0 +1,47 @@
+[
+  {
+    "sender": "me",
+    "subject": "Hello from automation #3",
+    "preview": "This is a personalized message for recipient 3",
+    "date": "Sat, Jan 18, 2025, 10:38 AM",
+    "isUnread": true,
+    "hasAttachment": false,
+    "isStarred": false
+  },
+  {
+    "sender": "me",
+    "subject": "Hello from automation #3",
+    "preview": "This is a personalized message for recipient 3",
+    "date": "Sat, Jan 18, 2025, 10:38 AM",
+    "isUnread": true,
+    "hasAttachment": false,
+    "isStarred": false
+  },
+  {
+    "sender": "me",
+    "subject": "Hello from automation #3",
+    "preview": "This is a personalized message for recipient 3",
+    "date": "Sat, Jan 18, 2025, 10:19 AM",
+    "isUnread": true,
+    "hasAttachment": false,
+    "isStarred": false
+  },
+  {
+    "sender": "Google",
+    "subject": "Security alert",
+    "preview": "A new sign-in on Linux danzu2009@gmail.com We noticed a new sign-in to your Google Account on a Linux device. If this was you, you don't need to do anything. If not, we'll help you secure your",
+    "date": "Sat, Jan 18, 2025, 8:24 AM",
+    "isUnread": true,
+    "hasAttachment": false,
+    "isStarred": false
+  },
+  {
+    "sender": "Vercel",
+    "subject": "New sign-in detected on your Vercel account",
+    "preview": "Hi rachidfrex, Your Vercel account danzu2009@gmail.com was recently signed-in from a new location, device or browser. Location Sidi Slimane, Kenitra Province, Morocco Time Friday, January 17, 2025 at 6",
+    "date": "Fri, Jan 17, 2025, 1:43 PM",
+    "isUnread": true,
+    "hasAttachment": false,
+    "isStarred": false
+  }
+]

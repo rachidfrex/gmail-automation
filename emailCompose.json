@@ -1,0 +1,25 @@
+{
+    "recipients": [
+      {
+        "email": "hajouji7518@gmail.com",
+        "subject": "Hello from automation #1",
+        "body": "This is a personalized message for recipient 1"
+      },
+      {
+        "email": "hajouji7520@gmail.com",
+        "subject": "Hello from automation #2",
+        "body": "This is a personalized message for recipient 2"
+      },
+      {
+        "email": "danzu2009@gmail.com",
+        "subject": "Hello from automation #3",
+        "body": "This is a personalized message for recipient 3"
+      },
+      {
+        "email": "arciptv.store@gmail.com",
+        "subject": "Hello from automation #4",
+        "body": "This is a personalized message for recipient 4"
+      }
+    ]
+  }
+  
