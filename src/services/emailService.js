@@ -3,27 +3,20 @@ const chalk = require('chalk');
 
 async function getLatestEmails(page, numberOfEmails = 5) {
   try {
-    await page.waitForSelector('tr[role="row"]', { timeout: 30000 });
+    await page.waitForSelector('div.I2nW4d[role="list"] div.ksQvef', { timeout: 30000 });
     
     const emails = await page.evaluate((count) => {
       const emails = [];
-      const rows = document.querySelectorAll('tr[role="row"]');
+      const rows = document.querySelectorAll('div.I2nW4d[role="list"] div.ksQvef');
       
       for (let i = 0; i < Math.min(count, rows.length); i++) {
         const row = rows[i];
         
-        const sender = row.querySelector('.yP')?.innerText || 
-                      row.querySelector('.zF')?.innerText || 'Unknown';
-        
-        const subject = row.querySelector('.bog span')?.innerText || 'No subject';
-         
-        const preview = row.querySelector('.y2')?.innerText
-          .replace(/^\s*-\s*/, '') || 'No preview';
-        
-        const timestamp = row.querySelector('.xW span[title]')?.getAttribute('title') || 
-                         row.querySelector('.xW span')?.innerText || 'No date';
-        
-        const isUnread = row.classList.contains('zE');
+        const sender = row.querySelector('.SGqfCc.FjjIEb span')?.innerText || 'Unknown';
+        const subject = row.querySelector('.SGqfCc.HhG5wd span')?.innerText || 'No subject';
+        const preview = row.querySelector('.SGqfCc.bEeVec')?.innerText || 'No preview';
+        const timestamp = row.querySelector('.C9xYIc span')?.innerText || 'No date';
+        const isUnread = row.classList.contains('zE'); // May need adjustment for mobile
         
         emails.push({
           sender,
@@ -31,8 +24,8 @@ async function getLatestEmails(page, numberOfEmails = 5) {
           preview,
           date: timestamp,
           isUnread,
-          hasAttachment: !!row.querySelector('.bzX'),
-          isStarred: !!row.querySelector('.T-KT.T-KT-Jp'),
+          hasAttachment: !!row.querySelector('.Se5Bse'), // Attachment indicator class may vary
+          isStarred: !!row.querySelector('.kYbzg.pNR6wf.fTx1Ge[aria-checked="true"]'),
         });
       }
       return emails;
@@ -58,23 +51,32 @@ async function getLatestEmails(page, numberOfEmails = 5) {
 
 async function composeEmail(page, { to, subject, body }) {
   try {
-    await page.waitForSelector('div[role="button"][gh="cm"]', { timeout: 60000 });
-    await page.click('div[role="button"][gh="cm"]');
-    
-    await page.waitForSelector('div[role="dialog"]', { timeout: 60000 });
-    
-    await page.waitForSelector('input.agP.aFw[aria-label="To recipients"]', { timeout: 60000 });
-    await page.fill('input.agP.aFw[aria-label="To recipients"]', to);
-    
-    await page.waitForSelector('input[name="subjectbox"].aoT', { timeout: 60000 });
-    await page.fill('input[name="subjectbox"].aoT', subject);
-    
-    await page.waitForSelector('div.Am.Al.editable[role="textbox"]', { timeout: 60000 });
-    await page.fill('div.Am.Al.editable[role="textbox"]', body);
+    // Click compose button (the floating action button)
+    await page.waitForSelector('div.LuRb0e div.kYbzg[aria-label="Compose"]', { timeout: 10000 });
+    await page.click('div.LuRb0e div.kYbzg[aria-label="Compose"]');
+    await page.waitForTimeout(2000);
 
+    // Wait for compose form to be visible and fill recipient
+    await page.waitForSelector('input#composeto', { timeout: 10000 });
+    await page.fill('input#composeto', to);
     await page.waitForTimeout(1000);
+
+    // Fill subject
+    await page.waitForSelector('input#cmcsubj', { timeout: 10000 });
+    await page.fill('input#cmcsubj', subject);
+    await page.waitForTimeout(1000);
+
+    // Fill message body
+    await page.waitForSelector('div#cmcbody[contenteditable="true"]', { timeout: 10000 });
+    await page.fill('div#cmcbody[contenteditable="true"]', body);
+    await page.waitForTimeout(1000);
+
+    // Click send button with correct mobile selector
+    await page.waitForSelector('div.kYbzg.pNR6wf.laQMJf.AXeQ0c.YaxK2.DAy7Hb[data-control-type="cmaasend+105"]', { timeout: 10000 });
+    await page.click('div.kYbzg.pNR6wf.laQMJf.AXeQ0c.YaxK2.DAy7Hb[data-control-type="cmaasend+105"]');
     
-    await page.click('div.T-I.J-J5-Ji.aoO.v7.T-I-atl.L3[role="button"]');
+    // Wait for the compose window to close
+    await page.waitForTimeout(3000);
     console.log(chalk.green('✅ Email sent successfully'));
   } catch (error) {
     console.error(chalk.red('❌ Error sending email:', error));
@@ -90,39 +92,41 @@ async function sendBatchEmails(page) {
 
     for (const recipient of emailsData.recipients) {
       console.log(chalk.blue(`📧 Sending email to: ${recipient.email}`));
-      await composeEmail(page, {
-        to: recipient.email,
-        subject: recipient.subject,
-        body: recipient.body
-      });
-      await page.waitForTimeout(3000);
+      try {
+        await composeEmail(page, {
+          to: recipient.email,
+          subject: recipient.subject,
+          body: recipient.body
+        });
+        // Wait longer between emails to ensure UI is ready
+        await page.waitForTimeout(5000);
+      } catch (error) {
+        console.error(chalk.yellow(`⚠️ Failed to send email to ${recipient.email}:`, error.message));
+        // Continue with next email even if current one fails
+        continue;
+      }
     }
-    console.log(chalk.green('✅ Batch emails sent successfully'));
+    console.log(chalk.green('✅ Batch emails completed'));
   } catch (error) {
-    console.error(chalk.red('❌ Error sending batch emails:', error));
+    console.error(chalk.red('❌ Error in batch emails:', error));
     throw error;
   }
 }
 
 async function markAsRead(page, numberOfEmails = 5) {
   try {
-    // Wait for the unread emails to be visible
-    await page.waitForSelector('tr.zA.zE', { timeout: 30000 });
+    await page.waitForSelector('div.ksQvef', { timeout: 30000 });
     
-    // Get all unread emails
-    const unreadEmails = await page.$$('tr.zA.zE');
+    const unreadEmails = await page.$$('div.ksQvef.zE');
     console.log(chalk.blue(`Found ${unreadEmails.length} unread emails`));
     
     if (unreadEmails.length > 0) {
-      // Select emails one by one
       for (let i = 0; i < Math.min(numberOfEmails, unreadEmails.length); i++) {
         try {
-          // Wait for the checkbox to be ready
-          await page.waitForSelector('tr.zA.zE div[role="checkbox"]', { timeout: 5000 });
+          await page.waitForSelector('div.kYbzg.pNR6wf.yaP12c[role="checkbox"]', { timeout: 5000 });
           
-          // Click the checkbox using evaluate to ensure proper event handling
           await page.evaluate((index) => {
-            const checkboxes = document.querySelectorAll('tr.zA.zE div[role="checkbox"]');
+            const checkboxes = document.querySelectorAll('div.kYbzg.pNR6wf.yaP12c[role="checkbox"]');
             if (checkboxes[index]) {
               checkboxes[index].click();
             }
@@ -135,24 +139,14 @@ async function markAsRead(page, numberOfEmails = 5) {
         }
       }
 
-      // Wait for and click the "Mark as read" button
       try {
-        await page.waitForSelector('[role="button"][aria-label="Mark as read"]', { timeout: 5000 });
-        await page.click('[role="button"][aria-label="Mark as read"]');
+        await page.waitForSelector('div.kYbzg.pNR6wf.laQMJf.AXeQ0c[data-control-type="ca+5"]', { timeout: 5000 });
+        await page.click('div.kYbzg.pNR6wf.laQMJf.AXeQ0c[data-control-type="ca+5"]');
         
         await page.waitForTimeout(1000);
         console.log(chalk.green(`✅ Marked ${Math.min(numberOfEmails, unreadEmails.length)} emails as read`));
       } catch (err) {
-        // Try alternative selector if the first one fails
-        try {
-          await page.evaluate(() => {
-            const markAsReadBtn = document.querySelector('div[data-tooltip="Mark as read"]');
-            if (markAsReadBtn) markAsReadBtn.click();
-          });
-          console.log(chalk.green(`✅ Marked emails as read using alternative method`));
-        } catch (altErr) {
-          throw new Error('Failed to click mark as read button: ' + err.message);
-        }
+        throw new Error('Failed to click mark as read button: ' + err.message);
       }
     } else {
       console.log(chalk.yellow('📫 No unread emails found'));
