@@ -1,0 +1,47 @@
+[
+  {
+    "sender": "me",
+    "subject": "Hello from automation #3",
+    "preview": "This is a personalized message for recipient 3",
+    "date": "Sat, Jan 18, 2025, 5:09 PM",
+    "isUnread": false,
+    "hasAttachment": false,
+    "isStarred": false
+  },
+  {
+    "sender": "Google",
+    "subject": "Security alert",
+    "preview": "A new sign-in on Linux danzu2009@gmail.com We noticed a new sign-in to your Google Account on a Linux device. If this was you, you don't need to do anything. If not, we'll help you secure your",
+    "date": "Sat, Jan 18, 2025, 2:24 PM",
+    "isUnread": false,
+    "hasAttachment": false,
+    "isStarred": false
+  },
+  {
+    "sender": "Vercel",
+    "subject": "New sign-in detected on your Vercel account",
+    "preview": "Hi rachidfrex, Your Vercel account danzu2009@gmail.com was recently signed-in from a new location, device or browser. Location Sidi Slimane, Kenitra Province, Morocco Time Friday, January 17, 2025 at 6",
+    "date": "Fri, Jan 17, 2025, 7:43 PM",
+    "isUnread": false,
+    "hasAttachment": false,
+    "isStarred": false
+  },
+  {
+    "sender": "MongoDB Cloud",
+    "subject": "Successful sign-in for danzu2009@gmail.com from new device",
+    "preview": "We're verifying a recent sign-in for danzu2009@gmail.com: Timestamp: 2025-01-17 18:36:22 GMT IP Address: 196.74.175.213 You're receiving this message because of a successful sign-in from a",
+    "date": "Fri, Jan 17, 2025, 7:36 PM",
+    "isUnread": false,
+    "hasAttachment": false,
+    "isStarred": false
+  },
+  {
+    "sender": "Google",
+    "subject": "Security alert",
+    "preview": "A new sign-in on Windows danzu2009@gmail.com We noticed a new sign-in to your Google Account on a Windows device. If this was you, you don't need to do anything. If not, we'll help you secure",
+    "date": "Fri, Jan 17, 2025, 4:13 PM",
+    "isUnread": false,
+    "hasAttachment": false,
+    "isStarred": true
+  }
+]
