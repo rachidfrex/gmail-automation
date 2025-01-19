@@ -1,9 +1,27 @@
 [
   {
-    "sender": "me",
-    "subject": "Hello from automation #3",
-    "preview": "This is a personalized message for recipient 3",
-    "date": "6:34 pm",
+    "sender": "me, Mail ",
+    "subject": "Test Email",
+    "preview": "Address not found Your message wasn't delivered to recipient@example.com because the domain example.com couldn't be found. Check for typos or unnecessary spaces and try again. LEARN MORE This",
+    "date": "Yesterday",
+    "isUnread": false,
+    "hasAttachment": true,
+    "isStarred": false
+  },
+  {
+    "sender": "Docker",
+    "subject": "[Docker] You + Docker = Ready for Action",
+    "preview": "Hi and welcome to Docker, rachidfrex! Congratulations, your account has been verified! Sign in to your Docker account to download Docker Desktop, create repositories, and invite others to collaborate",
+    "date": "Yesterday",
+    "isUnread": false,
+    "hasAttachment": true,
+    "isStarred": false
+  },
+  {
+    "sender": "GitHub",
+    "subject": "[GitHub] A third-party GitHub Application has been added to your account",
+    "preview": "Hey rachidfrex! A third-party GitHub Application (Docker Inc) with the following permissions: - View your email addresses Was recently authorized to access your account. Visit https://github.com/",
+    "date": "Yesterday",
     "isUnread": false,
     "hasAttachment": true,
     "isStarred": false
@@ -12,7 +30,7 @@
     "sender": "me",
     "subject": "Hello from automation #3",
     "preview": "This is a personalized message for recipient 3",
-    "date": "5:12 pm",
+    "date": "Yesterday",
     "isUnread": false,
     "hasAttachment": true,
     "isStarred": false
@@ -21,25 +39,7 @@
     "sender": "me",
     "subject": "Hello from automation #3",
     "preview": "This is a personalized message for recipient 3",
-    "date": "5:09 pm",
-    "isUnread": false,
-    "hasAttachment": true,
-    "isStarred": false
-  },
-  {
-    "sender": "New categorized mail",
-    "subject": "71 Social, 550 Promotions",
-    "preview": "from Angus from NightCafe, NightCafe Studio, Temu, Facebook and Similarweb",
-    "date": "4:15 pm",
-    "isUnread": false,
-    "hasAttachment": true,
-    "isStarred": false
-  },
-  {
-    "sender": "Google ",
-    "subject": "Security alert",
-    "preview": "A new sign-in on Linux danzu2009@gmail.com We noticed a new sign-in to your Google Account on a Linux device. If this was you, you don't need to do anything. If not, we'll help you secure your",
-    "date": "2:24 pm",
+    "date": "Yesterday",
     "isUnread": false,
     "hasAttachment": true,
     "isStarred": false
