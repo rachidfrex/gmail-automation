@@ -7,21 +7,18 @@ const capabilities = {
   platformName: 'Android',
   'appium:automationName': 'UiAutomator2',
   'appium:deviceName': 'Pixel_4',
+  'appium:udid': 'emulator-5554',  // Add this line
   'appium:appPackage': 'com.google.android.gm',
   'appium:appActivity': 'com.google.android.gm.ConversationListActivityGmail',
-  'appium:noReset': false
+  'appium:noReset': false,
+  'appium:newCommandTimeout': 60000
 };
-// const wdOpts = {
-//   hostname: process.env.APPIUM_HOST || 'localhost',
-//   port: 4723,
-//   logLevel: 'error',
-//   capabilities
-// };
+
 const wdOpts = {
-  hostname: 'localhost',  // Changed from process.env.APPIUM_HOST
+  hostname: 'localhost',
   port: 4723,
   path: '/wd/hub',
-  logLevel: 'info',  // Changed to info for better debugging
+  logLevel: 'info',
   capabilities
 };
 async function setupMobileAutomation() {
