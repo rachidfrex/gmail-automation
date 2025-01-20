@@ -1,0 +1,37 @@
+version: '3'
+services:
+  appium:
+    build: .
+    ports:
+      - "4723:4723"
+    volumes:
+      - .:/app
+    environment:
+      - ANDROID_HOME=/usr/local/android-sdk
+      - APPIUM_HOST=0.0.0.0
+    network_mode: "host"
+    privileged: true
+    devices:
+      - /dev/kvm:/dev/kvm
+    command: >
+      bash -c "appium --allow-insecure chromedriver_autodownload --base-path /wd/hub"
+    stdin_open: true
+    tty: true
+
+  android:
+    image: budtmo/docker-android:emulator_11.0
+    depends_on:
+      - appium
+    ports:
+      - "6080:6080"
+      - "5554:5554"
+      - "5555:5555"
+    environment:
+      - DEVICE=Pixel_4
+      - ANDROID_VERSION=11.0
+      - EMULATOR_ARGS=-no-window -no-audio -gpu swiftshader_indirect
+      - APPIUM=true
+    network_mode: "host"
+    privileged: true
+    devices:
+      - /dev/kvm:/dev/kvm

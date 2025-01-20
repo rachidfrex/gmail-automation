@@ -6,18 +6,24 @@ const chalk = require('chalk');
 const capabilities = {
   platformName: 'Android',
   'appium:automationName': 'UiAutomator2',
-  'appium:deviceName': 'Pixel_4_API_30',
-  'appium:app': 'com.google.android.gm',
+  'appium:deviceName': 'Pixel_4',
+  'appium:appPackage': 'com.google.android.gm',
+  'appium:appActivity': 'com.google.android.gm.ConversationListActivityGmail',
   'appium:noReset': false
 };
-
+// const wdOpts = {
+//   hostname: process.env.APPIUM_HOST || 'localhost',
+//   port: 4723,
+//   logLevel: 'error',
+//   capabilities
+// };
 const wdOpts = {
-  hostname: process.env.APPIUM_HOST || 'localhost',
+  hostname: 'localhost',  // Changed from process.env.APPIUM_HOST
   port: 4723,
-  logLevel: 'error',
+  path: '/wd/hub',
+  logLevel: 'info',  // Changed to info for better debugging
   capabilities
 };
-
 async function setupMobileAutomation() {
   console.log(chalk.blue('🚀 Setting up mobile automation...'));
   const driver = await remote(wdOpts);
