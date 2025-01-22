@@ -9,11 +9,17 @@ services:
     environment:
       - DEVICE=Pixel_4
       - ANDROID_VERSION=11.0
-      - EMULATOR_ARGS=-no-window -gpu swiftshader_indirect
+      - EMULATOR_ARGS=-no-window -gpu swiftshader_indirect -no-audio -no-boot-anim
       - APPIUM=true
+      - ANDROID_DEVICE=Pixel_4
+      - CONNECT_TO_EXISTING_GRID=false
     privileged: true
     devices:
       - /dev/kvm:/dev/kvm
+    volumes:
+      - /dev/bus/usb:/dev/bus/usb
+      - ~/.android:/root/.android
+    network_mode: "host"
 
   appium:
     build: .
@@ -21,13 +27,18 @@ services:
       - "4723:4723"
     volumes:
       - .:/app
+      - /dev/bus/usb:/dev/bus/usb
     environment:
       - ANDROID_HOME=/usr/local/android-sdk
       - APPIUM_HOST=0.0.0.0
     privileged: true
+    depends_on:
+      - android
+    network_mode: "host"
     command: >
       bash -c "
-        sleep 30 &&
-        appium --allow-insecure chromedriver_autodownload --base-path /wd/hub"
+        sleep 90 &&
+        adb start-server &&
+        appium --allow-insecure chromedriver_autodownload"
     stdin_open: true
     tty: true

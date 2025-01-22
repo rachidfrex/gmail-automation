@@ -1,4 +1,3 @@
-
 const { remote } = require('webdriverio');
 const fs = require('fs').promises;
 const chalk = require('chalk');
@@ -7,20 +6,23 @@ const capabilities = {
   platformName: 'Android',
   'appium:automationName': 'UiAutomator2',
   'appium:deviceName': 'Pixel_4',
-  'appium:udid': 'emulator-5554',  // Add this line
+  'appium:platformVersion': '11.0',
   'appium:appPackage': 'com.google.android.gm',
   'appium:appActivity': 'com.google.android.gm.ConversationListActivityGmail',
   'appium:noReset': false,
-  'appium:newCommandTimeout': 60000
+  'appium:newCommandTimeout': 90000,
+  'appium:androidDeviceReadyTimeout': 90000,
+  'appium:adbExecTimeout': 90000,
+  'appium:autoGrantPermissions': true
 };
 
 const wdOpts = {
   hostname: 'localhost',
   port: 4723,
-  path: '/wd/hub',
   logLevel: 'info',
   capabilities
 };
+
 async function setupMobileAutomation() {
   console.log(chalk.blue('🚀 Setting up mobile automation...'));
   const driver = await remote(wdOpts);
