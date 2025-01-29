@@ -31,6 +31,7 @@ function validateEnvironment() {
   }
 }
 
+// Add chromedriverExecutableDir to capabilities
 const capabilities = {
   platformName: 'Android',
   'appium:automationName': 'UiAutomator2',
@@ -46,7 +47,10 @@ const capabilities = {
   'appium:intentAction': 'android.intent.action.MAIN',
   'appium:intentCategory': 'android.intent.category.LAUNCHER',
   'appium:dontStopAppOnReset': false,
-  'appium:enforceAppInstall': true
+  'appium:enforceAppInstall': true,
+  'appium:chromedriverExecutableDir': path.join(process.env.ANDROID_HOME, 'chromedriver'),
+  'appium:autoWebviewTimeout': 15000,
+  'appium:webviewDevtoolsPort': 9222
 };
 
 const wdOpts = {
@@ -99,6 +103,76 @@ async function setupMobileAutomation() {
   }
 }
 
+// Add new helper function for WebView context switching
+async function switchToWebContext(driver) {
+  const contexts = await driver.getContexts();
+  const webContext = contexts.find(c => c.includes('WEBVIEW'));
+  
+  if (webContext) {
+    await driver.switchContext(webContext);
+    console.log(chalk.green(`Switched to WEBVIEW context: ${webContext}`));
+    return true;
+  }
+  return false;
+}
+
+// Replace existing clickNextButton function
+async function clickNextButton(driver) {
+  console.log(chalk.blue('Looking for Next button...'));
+
+  // Attempt WebView handling first
+  if (await switchToWebContext(driver)) {
+    try {
+      const webSelectors = [
+        '#identifierNext',
+        'button[data-primary-action="true"]',
+        'button:contains("Next")'
+      ];
+
+      for (const selector of webSelectors) {
+        try {
+          const btn = await driver.$(selector);
+          await btn.waitForExist({ timeout: 5000 });
+          await btn.click();
+          console.log(chalk.green(`✅ Clicked web Next button via: ${selector}`));
+          return true;
+        } catch (e) {
+          console.log(chalk.yellow(`Web selector failed: ${selector}`));
+        }
+      }
+    } finally {
+      await driver.switchContext('NATIVE_APP');
+    }
+  }
+
+  // Native fallback with precise bounds
+  const nativeSelector = 'android=new UiSelector().className("android.widget.Button").bounds(783,1293,1025,1425)';
+  try {
+    const btn = await driver.$(nativeSelector);
+    await btn.click();
+    console.log(chalk.green('✅ Clicked native Next button'));
+    return true;
+  } catch (e) {
+    console.log(chalk.red('Native Next button click failed'));
+    await logDebugInfo(driver);
+    return false;
+  }
+}
+
+// Add debug helper
+async function logDebugInfo(driver) {
+  try {
+    const contexts = await driver.getContexts();
+    console.log(chalk.yellow('Available contexts:', contexts));
+    const currentContext = await driver.getContext();
+    console.log(chalk.yellow('Current context:', currentContext));
+    const source = await driver.getPageSource();
+    console.log(chalk.yellow('Current page source:', source));
+  } catch (e) {
+    console.log(chalk.red('Failed to log debug info:', e.message));
+  }
+}
+
 async function loginToGmail(driver, email, password) {
   // Helper functions
   async function logClickableElements(driver) {
@@ -134,45 +208,6 @@ async function loginToGmail(driver, email, password) {
       }
     }
     return false;
-  }
-
-  async function clickNextButton(driver) {
-    console.log(chalk.blue('Looking for Next button...'));
-    
-    const nextButtonSelectors = [
-      // This specific selector matches the button in your UI
-      'android=new UiSelector().className("android.widget.Button").text("NEXT")',
-      // Alternative selectors as fallbacks
-      'android=new UiSelector().text("NEXT")',
-      'android=new UiSelector().className("android.widget.Button").instance(0)',
-      'android=new UiSelector().className("android.widget.Button").bounds("783,1983,1025,2115")'
-    ];
-  
-    for (const selector of nextButtonSelectors) {
-      try {
-        const nextButton = await driver.$(selector);
-        if (await nextButton.isDisplayed()) {
-          await nextButton.click();
-          console.log(chalk.green('✅ Clicked Next button'));
-          return true;
-        }
-      } catch (e) {
-        console.log(chalk.yellow(`Next button selector failed: ${selector}`));
-      }
-    }
-  
-    // If we couldn't find the button with specific selectors, try clicking by coordinates
-    try {
-      // These coordinates match the button's location in your UI
-      await driver.touchAction([
-        { action: 'tap', x: 904, y: 2049 }  // Center of the NEXT button
-      ]);
-      console.log(chalk.green('✅ Clicked Next button by coordinates'));
-      return true;
-    } catch (e) {
-      console.log(chalk.red('Failed to click Next button:', e.message));
-      return false;
-    }
   }
 
   console.log(chalk.blue('🔑 Logging into Gmail app...'));
@@ -238,29 +273,20 @@ async function loginToGmail(driver, email, password) {
     // New email input handling
     try {
       console.log(chalk.blue('Attempting to enter email...'));
-      
-      // Wait for the WebView to load
-      await driver.pause(5000);
-  
-      // Get current context
-      const currentContext = await driver.getContext();
-      console.log(chalk.yellow('Current context:', currentContext));
-  
-      // Try multiple selectors for email input
+      await driver.pause(3000);
+
+      // Look for the email input field with different strategies
       const emailSelectors = [
-        'android=new UiSelector().className("android.widget.EditText").instance(0)',
         'android=new UiSelector().resourceId("identifierId")',
-        'android=new UiSelector().textContains("Enter")',
-        'android=new UiSelector().className("android.widget.EditText").clickable(true)',
-        'android=new UiSelector().resourceId("com.google.android.gm:id/setup_email")'
+        'android=new UiSelector().className("android.widget.EditText").instance(0)',
+        'android=new UiSelector().className("android.widget.EditText").text("")'
       ];
-  
+
       let emailInput = null;
       for (const selector of emailSelectors) {
         try {
-          const element = await driver.$(selector);
-          if (await element.isDisplayed()) {
-            emailInput = element;
+          emailInput = await driver.$(selector);
+          if (await emailInput.isDisplayed()) {
             console.log(chalk.green(`Found email input with selector: ${selector}`));
             break;
           }
@@ -268,60 +294,34 @@ async function loginToGmail(driver, email, password) {
           console.log(chalk.yellow(`Email selector failed: ${selector}`));
         }
       }
-  
+
       if (!emailInput) {
         throw new Error('Could not find email input field');
       }
-  
-      // Clear existing text and enter email
+
       await emailInput.clearValue();
       await emailInput.setValue(email);
       console.log(chalk.green('✅ Entered email'));
       await driver.pause(2000);
-  
-      // Try to find Next button with multiple selectors
-      const nextButtonSelectors = [
-        'android=new UiSelector().text("Next")',
-        'android=new UiSelector().className("android.widget.Button").text("Next")',
-        'android=new UiSelector().resourceId("identifierNext")',
-        'android=new UiSelector().className("android.widget.Button").clickable(true)'
-      ];
-  
-      for (const selector of nextButtonSelectors) {
-        try {
-          const nextButton = await driver.$(selector);
-          if (await nextButton.isDisplayed()) {
-            await nextButton.click();
-            console.log(chalk.green('✅ Clicked Next button'));
-            await driver.pause(3000);
-            break;
-          }
-        } catch (e) {
-          console.log(chalk.yellow(`Next button selector failed: ${selector}`));
-        }
+
+      // Click NEXT button with precise bounds
+      const nextButtonSelector = 'android=new UiSelector().className("android.widget.Button").bounds(783,1983,1025,2115)';
+      try {
+        const nextButton = await driver.$(nextButtonSelector);
+        await nextButton.click();
+        console.log(chalk.green('✅ Clicked Next button'));
+      } catch (e) {
+        console.log(chalk.yellow('Failed to click Next with bounds, trying coordinates'));
+        await driver.touchAction([
+          { action: 'tap', x: 904, y: 2049 }  // Center of the NEXT button
+        ]);
       }
-  
-      // Save screenshot after email input
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      await driver.saveScreenshot(path.join(OUTPUT_DIR.screenshots, `after_email_${timestamp}.png`));
-      const source = await driver.getPageSource();
-      await fs.writeFile(
-        path.join(OUTPUT_DIR.logs, `page_source_${timestamp}.xml`),
-        source
-      );
-  
+      await driver.pause(3000);
+
+      // ...rest of existing code...
     } catch (error) {
-      console.error(chalk.red('Failed to enter email:', error.message));
-      
-      // Save error state
-      const errorTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      await driver.saveScreenshot(path.join(OUTPUT_DIR.screenshots, `error_${errorTimestamp}.png`));
-      const errorSource = await driver.getPageSource();
-      await fs.writeFile(
-        path.join(OUTPUT_DIR.logs, `error_${errorTimestamp}.xml`),
-        errorSource
-      );
-      
+      console.error(chalk.red('Failed during email entry:', error.message));
+      await logDebugInfo(driver);
       throw error;
     }
 
