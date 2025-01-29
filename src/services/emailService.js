@@ -1,51 +1,41 @@
 const fs = require('fs').promises;
+const path = require('path');
 const chalk = require('chalk');
 
-async function getLatestEmails(page, numberOfEmails = 5) {
+const SELECTORS = {
+  mobile: {
+    composeButton: '[gh="cm"]',
+    emailList: '.UI table tbody tr',
+    checkbox: 'div[role="checkbox"]',
+    subject: 'input[name="subjectbox"]',
+    body: 'div[role="textbox"]',
+    send: 'div[role="button"][aria-label*="Send"]'
+  },
+  desktop: {
+    composeButton: 'div[gh="cm"]',
+    emailList: 'div[role="main"] tr',
+    checkbox: 'div[role="checkbox"]',
+    subject: 'input[name="subjectbox"]',
+    body: 'div[role="textbox"]',
+    send: 'div[role="button"][aria-label*="Send"]'
+  }
+};
+
+async function getLatestEmails(page, count) {
   try {
-    await page.waitForSelector('div.I2nW4d[role="list"] div.ksQvef', { timeout: 30000 });
+    await page.waitForSelector(SELECTORS.desktop.emailList);
+    const emails = await page.$$eval(SELECTORS.desktop.emailList, (rows, count) => {
+      return rows.slice(0, count).map(row => {
+        const subject = row.querySelector('td:nth-child(6)')?.textContent || '';
+        const sender = row.querySelector('td:nth-child(4)')?.textContent || '';
+        return { subject, sender };
+      });
+    }, count);
     
-    const emails = await page.evaluate((count) => {
-      const emails = [];
-      const rows = document.querySelectorAll('div.I2nW4d[role="list"] div.ksQvef');
-      
-      for (let i = 0; i < Math.min(count, rows.length); i++) {
-        const row = rows[i];
-        
-        const sender = row.querySelector('.SGqfCc.FjjIEb span')?.innerText || 'Unknown';
-        const subject = row.querySelector('.SGqfCc.HhG5wd span')?.innerText || 'No subject';
-        const preview = row.querySelector('.SGqfCc.bEeVec')?.innerText || 'No preview';
-        const timestamp = row.querySelector('.C9xYIc span')?.innerText || 'No date';
-        const isUnread = row.classList.contains('zE'); // May need adjustment for mobile
-        
-        emails.push({
-          sender,
-          subject,
-          preview,
-          date: timestamp,
-          isUnread,
-          hasAttachment: !!row.querySelector('.Se5Bse'), // Attachment indicator class may vary
-          isStarred: !!row.querySelector('.kYbzg.pNR6wf.fTx1Ge[aria-checked="true"]'),
-        });
-      }
-      return emails;
-    }, numberOfEmails);
-
-    await fs.writeFile('emails.json', JSON.stringify(emails, null, 2));
-    
-    console.log(chalk.green('\n📧 Latest emails found:', emails.length));
-    emails.forEach((email, i) => {
-      console.log(chalk.cyan(`\n📩 Email ${i + 1}:`));
-      console.log(chalk.white(`   From: ${email.sender}`));
-      console.log(chalk.white(`   Subject: ${email.subject}`));
-      console.log(chalk.white(`   Date: ${email.date}`));
-      console.log(chalk.white(`   Status: ${email.isUnread ? '🆕 Unread' : '✓ Read'}`));
-    });
-
+    console.log(`Found ${emails.length} emails`);
     return emails;
   } catch (error) {
-    console.error(chalk.red('❌ Error getting emails:', error));
-    throw error;
+    throw new Error(`Failed to get latest emails: ${error.message}`);
   }
 }
 
@@ -86,74 +76,58 @@ async function composeEmail(page, { to, subject, body }) {
 
 async function sendBatchEmails(page) {
   try {
-    const emailsData = JSON.parse(
-      await fs.readFile('emailCompose.json', 'utf-8')
+    const emailData = JSON.parse(
+      await fs.readFile(path.join(__dirname, '../../emailCompose.json'), 'utf8')
     );
 
-    for (const recipient of emailsData.recipients) {
-      console.log(chalk.blue(`📧 Sending email to: ${recipient.email}`));
-      try {
-        await composeEmail(page, {
-          to: recipient.email,
-          subject: recipient.subject,
-          body: recipient.body
-        });
-        // Wait longer between emails to ensure UI is ready
-        await page.waitForTimeout(5000);
-      } catch (error) {
-        console.error(chalk.yellow(`⚠️ Failed to send email to ${recipient.email}:`, error.message));
-        // Continue with next email even if current one fails
-        continue;
-      }
+    for (const email of emailData) {
+      await page.waitForTimeout(2000 + Math.random() * 3000);
+      
+      // Click compose with retry
+      await retryOperation(async () => {
+        await page.click(SELECTORS.desktop.composeButton);
+      });
+
+      // Fill email details with human-like delays
+      await page.waitForSelector('input[name="to"]');
+      await page.fill('input[name="to"]', email.to);
+      await page.waitForTimeout(1000 + Math.random() * 2000);
+      
+      await page.fill(SELECTORS.desktop.subject, email.subject);
+      await page.waitForTimeout(1000 + Math.random() * 2000);
+      
+      await page.fill(SELECTORS.desktop.body, email.body);
+      await page.waitForTimeout(2000 + Math.random() * 3000);
+      
+      await page.click(SELECTORS.desktop.send);
+      console.log(`Sent email to ${email.to}`);
     }
-    console.log(chalk.green('✅ Batch emails completed'));
   } catch (error) {
-    console.error(chalk.red('❌ Error in batch emails:', error));
-    throw error;
+    throw new Error(`Failed to send batch emails: ${error.message}`);
   }
 }
 
-async function markAsRead(page, numberOfEmails = 5) {
+async function markAsRead(page, count) {
   try {
-    await page.waitForSelector('div.ksQvef', { timeout: 30000 });
-    
-    const unreadEmails = await page.$$('div.ksQvef.zE');
-    console.log(chalk.blue(`Found ${unreadEmails.length} unread emails`));
-    
-    if (unreadEmails.length > 0) {
-      for (let i = 0; i < Math.min(numberOfEmails, unreadEmails.length); i++) {
-        try {
-          await page.waitForSelector('div.kYbzg.pNR6wf.yaP12c[role="checkbox"]', { timeout: 5000 });
-          
-          await page.evaluate((index) => {
-            const checkboxes = document.querySelectorAll('div.kYbzg.pNR6wf.yaP12c[role="checkbox"]');
-            if (checkboxes[index]) {
-              checkboxes[index].click();
-            }
-          }, i);
-          
-          await page.waitForTimeout(500);
-        } catch (err) {
-          console.error(chalk.yellow(`⚠️ Couldn't select email ${i + 1}:`, err.message));
-          continue;
-        }
-      }
-
-      try {
-        await page.waitForSelector('div.kYbzg.pNR6wf.laQMJf.AXeQ0c[data-control-type="ca+5"]', { timeout: 5000 });
-        await page.click('div.kYbzg.pNR6wf.laQMJf.AXeQ0c[data-control-type="ca+5"]');
-        
-        await page.waitForTimeout(1000);
-        console.log(chalk.green(`✅ Marked ${Math.min(numberOfEmails, unreadEmails.length)} emails as read`));
-      } catch (err) {
-        throw new Error('Failed to click mark as read button: ' + err.message);
-      }
-    } else {
-      console.log(chalk.yellow('📫 No unread emails found'));
+    const emails = await page.$$(SELECTORS.desktop.emailList);
+    for (let i = 0; i < Math.min(count, emails.length); i++) {
+      await page.waitForTimeout(1000 + Math.random() * 2000);
+      await emails[i].click();
     }
   } catch (error) {
-    console.error(chalk.red('❌ Error marking emails as read:', error));
-    throw error;
+    throw new Error(`Failed to mark emails as read: ${error.message}`);
+  }
+}
+
+async function retryOperation(operation, maxAttempts = 3) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await operation();
+      return;
+    } catch (error) {
+      if (attempt === maxAttempts) throw error;
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
   }
 }
 
