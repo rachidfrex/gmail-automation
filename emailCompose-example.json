@@ -1,9 +1,0 @@
-{
-    "recipients": [
-      {
-        "email": "email_dialek@example.com",
-        "subject": "Sujet dial email",
-        "body": "Message li bghiti tsift"
-      }
-    ]
-  }

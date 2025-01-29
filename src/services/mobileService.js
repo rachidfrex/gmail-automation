@@ -2,6 +2,7 @@ const { remote } = require('webdriverio');
 const fs = require('fs').promises;
 const chalk = require('chalk');
 const path = require('path');
+const { exec } = require('child_process');
 
 function validateEnvironment() {
   const required = {
@@ -31,15 +32,20 @@ const capabilities = {
   'appium:deviceName': 'Pixel_4_API_30',
   'appium:platformVersion': '11.0',
   'appium:appPackage': 'com.google.android.gm',
-  'appium:appActivity': 'com.google.android.gm.ConversationListActivityGmail',
+  'appium:appActivity': '.GmailActivity',
   'appium:noReset': false,
   'appium:autoGrantPermissions': true,
-  'appium:newCommandTimeout': 120,
-  'appium:androidDeviceReadyTimeout': 60000
+  'appium:newCommandTimeout': 90000,
+  'appium:androidDeviceReadyTimeout': 90000,
+  'appium:adbExecTimeout': 90000,
+  'appium:intentAction': 'android.intent.action.MAIN',
+  'appium:intentCategory': 'android.intent.category.LAUNCHER',
+  'appium:dontStopAppOnReset': false,
+  'appium:enforceAppInstall': true
 };
 
 const wdOpts = {
-  hostname: process.env.APPIUM_HOST || 'localhost',
+  hostname: 'localhost',
   port: 4723,
   logLevel: 'info',
   capabilities
@@ -48,31 +54,39 @@ const wdOpts = {
 async function setupMobileAutomation() {
   console.log(chalk.blue('🚀 Setting up mobile automation...'));
   try {
-    // Validate environment first
     validateEnvironment();
-
-    // Verify Android SDK is accessible
+    
     const adbPath = path.join(process.env.ANDROID_HOME, 'platform-tools', 'adb.exe');
     
-    // Check if emulator is running
-    const { exec } = require('child_process');
-    await new Promise((resolve, reject) => {
-      exec(`"${adbPath}" devices`, (error, stdout, stderr) => {
-        if (error) {
-          console.error(chalk.red('Error checking devices:', error));
-          reject(error);
-          return;
-        }
-        if (!stdout.includes('emulator')) {
-          reject(new Error('No emulator found. Please start your Android emulator first.'));
-          return;
-        }
-        console.log(chalk.yellow('Connected devices:'), stdout);
-        resolve();
+    // Helper function for adb commands
+    const executeAdb = async (command) => {
+      return new Promise((resolve, reject) => {
+        exec(`"${adbPath}" ${command}`, (error, stdout, stderr) => {
+          if (error) {
+            console.error(chalk.red(`Error executing adb ${command}:`, error));
+            reject(error);
+            return;
+          }
+          resolve(stdout.trim());
+        });
       });
-    });
+    };
 
+    // Ensure Gmail is ready
+    await executeAdb('shell pm clear com.google.android.gm');
+    await executeAdb('shell am force-stop com.google.android.gm');
+    
+    // Check emulator
+    const devices = await executeAdb('devices');
+    if (!devices.includes('emulator')) {
+      throw new Error('No emulator found. Please start your Android emulator first.');
+    }
+    console.log(chalk.yellow('Connected devices:'), devices);
+    
+    // Create driver
     const driver = await remote(wdOpts);
+    await driver.pause(5000);
+    
     return driver;
   } catch (error) {
     console.error(chalk.red('Setup failed:', error.message));
@@ -83,27 +97,38 @@ async function setupMobileAutomation() {
 async function loginToGmail(driver, email, password) {
   console.log(chalk.blue('🔑 Logging into Gmail app...'));
   try {
-    // Wait for app to load and get page source for debugging
     await driver.pause(5000);
-    const source = await driver.getPageSource();
-    console.log(chalk.yellow('Current page source:', source));
 
-    // Try different selectors for the initial setup buttons
-    const initialSelectors = [
-      'new UiSelector().text("Skip")',
-      'new UiSelector().text("Got it")',
-      'new UiSelector().resourceId("com.google.android.gm:id/welcome_tour_got_it")',
-      'new UiSelector().text("Add an email address")',
-      'new UiSelector().resourceId("com.google.android.gm:id/setup_addresses_add_another")',
-      'new UiSelector().resourceId("com.google.android.gm:id/action_done")'
+    // Helper function to safely click elements
+    const safeClick = async (selector, description) => {
+      try {
+        const element = await driver.$(selector);
+        if (await element.isDisplayed()) {
+          await element.click();
+          console.log(chalk.green(`✅ Clicked ${description}`));
+          return true;
+        }
+      } catch (e) {
+        console.log(chalk.yellow(`${description} not found`));
+      }
+      return false;
+    };
+
+    // Try different selectors for initial setup
+    const selectors = [
+      'android=new UiSelector().text("Got it")',
+      'android=new UiSelector().text("Skip")',
+      'android=new UiSelector().text("Add an email address")',
+      'android=new UiSelector().text("Add another account")',
+      'android=new UiSelector().resourceId("com.google.android.gm:id/welcome_tour_got_it")',
+      'android=new UiSelector().className("android.widget.Button")'
     ];
 
-    // Try each selector
-    for (const selector of initialSelectors) {
+    for (const selector of selectors) {
       try {
-        const element = await driver.$(`android=${selector}`);
+        const element = await driver.$(selector);
         if (await element.isDisplayed()) {
-          console.log(chalk.green(`✅ Found and clicking element with selector: ${selector}`));
+          console.log(chalk.green(`Found element with selector: ${selector}`));
           await element.click();
           await driver.pause(2000);
         }
@@ -112,87 +137,57 @@ async function loginToGmail(driver, email, password) {
       }
     }
 
-    // Try to find Google account setup
+    // Try to enter email
     try {
-      const googleAccount = await driver.$('android=new UiSelector().resourceId("com.google.android.gm:id/account_setup_label")');
-      if (await googleAccount.isDisplayed()) {
-        await googleAccount.click();
-        console.log(chalk.green('✅ Selected Google account setup'));
-      }
-    } catch (e) {
-      console.log(chalk.yellow('Google account setup not found, continuing...'));
-    }
-
-    // Email input using resource ID
-    try {
-      const emailInput = await driver.$('android=new UiSelector().resourceId("identifierId")');
+      const emailInput = await driver.$('android=new UiSelector().className("android.widget.EditText")');
+      await emailInput.waitForDisplayed({ timeout: 10000 });
       await emailInput.setValue(email);
       console.log(chalk.green('✅ Entered email'));
       
-      const nextButton = await driver.$('android=new UiSelector().resourceId("identifierNext")');
-      await nextButton.click();
+      await safeClick('android=new UiSelector().text("Next")', 'Next button');
+      await driver.pause(3000);
     } catch (e) {
-      console.log(chalk.yellow('Could not find email input, trying alternative selector...'));
-      // Try alternative email input
-      const altEmailInput = await driver.$('android=new UiSelector().className("android.widget.EditText")');
-      await altEmailInput.setValue(email);
-      
-      const altNextButton = await driver.$('android=new UiSelector().text("Next").className("android.widget.Button")');
-      await altNextButton.click();
+      console.error(chalk.red('Failed to enter email:', e.message));
+      throw e;
     }
 
-    await driver.pause(3000);
-
-    // Password input using resource ID
+    // Try to enter password
     try {
-      const passwordInput = await driver.$('android=new UiSelector().resourceId("password")');
+      const passwordInput = await driver.$('android=new UiSelector().password(true)');
+      await passwordInput.waitForDisplayed({ timeout: 10000 });
       await passwordInput.setValue(password);
       console.log(chalk.green('✅ Entered password'));
       
-      const nextButton = await driver.$('android=new UiSelector().resourceId("passwordNext")');
-      await nextButton.click();
+      await safeClick('android=new UiSelector().text("Next")', 'Next button');
+      await driver.pause(3000);
     } catch (e) {
-      console.log(chalk.yellow('Could not find password input, trying alternative selector...'));
-      // Try alternative password input
-      const altPasswordInput = await driver.$('android=new UiSelector().password(true)');
-      await altPasswordInput.setValue(password);
-      
-      const altNextButton = await driver.$('android=new UiSelector().text("Next").className("android.widget.Button")');
-      await altNextButton.click();
+      console.error(chalk.red('Failed to enter password:', e.message));
+      throw e;
     }
 
     // Handle additional prompts
     const additionalButtons = [
-      'new UiSelector().text("I agree")',
-      'new UiSelector().text("Accept")',
-      'new UiSelector().text("More")',
-      'new UiSelector().text("OK")'
+      'android=new UiSelector().text("I agree")',
+      'android=new UiSelector().text("Accept")',
+      'android=new UiSelector().text("More")',
+      'android=new UiSelector().text("Done")'
     ];
 
     for (const selector of additionalButtons) {
-      try {
-        const element = await driver.$(`android=${selector}`);
-        if (await element.isDisplayed()) {
-          await element.click();
-          console.log(chalk.green(`✅ Clicked additional button: ${selector}`));
-          await driver.pause(2000);
-        }
-      } catch (e) {
-        continue;
-      }
+      await safeClick(selector, `Button ${selector}`);
+      await driver.pause(2000);
     }
 
     console.log(chalk.green('✅ Login sequence completed!'));
-    await driver.pause(5000);
-    
   } catch (error) {
     console.error(chalk.red('❌ Login failed:', error.message));
-    // Take screenshot on failure
     try {
       await driver.saveScreenshot('./error_screenshot.png');
-      console.log(chalk.yellow('Screenshot saved as error_screenshot.png'));
+      const source = await driver.getPageSource();
+      await fs.writeFile('./error_page_source.xml', source);
+      console.log(chalk.yellow('Debug info saved'));
     } catch (e) {
-      console.log(chalk.red('Could not save screenshot:', e.message));
+      console.log(chalk.red('Could not save debug info:', e.message));
     }
     throw error;
   }
@@ -200,21 +195,11 @@ async function loginToGmail(driver, email, password) {
 
 async function sendEmail(driver, { to, subject, body }) {
   try {
-    // Click compose button
     await driver.$('//android.widget.Button[@content-desc="Compose"]').click();
-    
-    // Fill recipient
     await driver.$('//android.widget.EditText[@text="To"]').setValue(to);
-    
-    // Fill subject
     await driver.$('//android.widget.EditText[@text="Subject"]').setValue(subject);
-    
-    // Fill body
     await driver.$('//android.widget.EditText[@text="Compose email"]').setValue(body);
-    
-    // Send email
     await driver.$('//android.widget.Button[@content-desc="Send"]').click();
-    
     console.log(chalk.green('✅ Email sent successfully'));
   } catch (error) {
     console.error(chalk.red('❌ Error sending email:', error));
