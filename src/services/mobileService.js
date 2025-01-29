@@ -136,6 +136,45 @@ async function loginToGmail(driver, email, password) {
     return false;
   }
 
+  async function clickNextButton(driver) {
+    console.log(chalk.blue('Looking for Next button...'));
+    
+    const nextButtonSelectors = [
+      // This specific selector matches the button in your UI
+      'android=new UiSelector().className("android.widget.Button").text("NEXT")',
+      // Alternative selectors as fallbacks
+      'android=new UiSelector().text("NEXT")',
+      'android=new UiSelector().className("android.widget.Button").instance(0)',
+      'android=new UiSelector().className("android.widget.Button").bounds("783,1983,1025,2115")'
+    ];
+  
+    for (const selector of nextButtonSelectors) {
+      try {
+        const nextButton = await driver.$(selector);
+        if (await nextButton.isDisplayed()) {
+          await nextButton.click();
+          console.log(chalk.green('✅ Clicked Next button'));
+          return true;
+        }
+      } catch (e) {
+        console.log(chalk.yellow(`Next button selector failed: ${selector}`));
+      }
+    }
+  
+    // If we couldn't find the button with specific selectors, try clicking by coordinates
+    try {
+      // These coordinates match the button's location in your UI
+      await driver.touchAction([
+        { action: 'tap', x: 904, y: 2049 }  // Center of the NEXT button
+      ]);
+      console.log(chalk.green('✅ Clicked Next button by coordinates'));
+      return true;
+    } catch (e) {
+      console.log(chalk.red('Failed to click Next button:', e.message));
+      return false;
+    }
+  }
+
   console.log(chalk.blue('🔑 Logging into Gmail app...'));
   try {
     await driver.pause(5000);
@@ -425,6 +464,10 @@ async function loginToGmail(driver, email, password) {
       await driver.saveScreenshot(path.join(OUTPUT_DIR.screenshots, `next_button_error_${timestamp}.png`));
       throw error;
     }
+
+    // After entering email, use the new clickNextButton function
+    await clickNextButton(driver);
+    await driver.pause(3000);
 
   } catch (error) {
     console.error(chalk.red('❌ Login failed:', error.message));
