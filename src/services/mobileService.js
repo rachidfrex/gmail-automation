@@ -139,81 +139,40 @@ async function loginToGmail(driver, email, password) {
   async function clickNextButton(driver) {
     console.log(chalk.blue('Looking for Next button...'));
     
-    // Get screen dimensions for relative positioning
-    const { width, height } = await driver.getWindowRect();
-    
-    const strategies = [
-      // Strategy 1: Try standard button selectors
-      async () => {
-        const buttonSelectors = [
-          'android=new UiSelector().className("android.widget.Button").text("NEXT")',
-          'android=new UiSelector().className("android.widget.Button").textMatches("(?i)next")',
-          'android=new UiSelector().resourceId("identifierNext")',
-          'android=new UiSelector().className("android.widget.Button").clickable(true).instance(2)'
-        ];
-        
-        for (const selector of buttonSelectors) {
-          try {
-            const button = await driver.$(selector);
-            if (await button.isDisplayed()) {
-              await button.click();
-              return true;
-            }
-          } catch (e) {
-            console.log(chalk.yellow(`Standard selector failed: ${selector}`));
-          }
-        }
-        return false;
-      },
-  
-      // Strategy 2: Try relative position (bottom right corner)
-      async () => {
-        try {
-          const x = Math.floor(width * 0.85); // 85% from left
-          const y = Math.floor(height * 0.92); // 92% from top
-          await driver.touchAction([
-            { action: 'tap', x, y }
-          ]);
-          return true;
-        } catch (e) {
-          console.log(chalk.yellow('Position-based click failed'));
-          return false;
-        }
-      },
-  
-      // Strategy 3: Try finding by surrounding elements
-      async () => {
-        try {
-          const elements = await driver.$$('android.widget.Button');
-          for (const element of elements) {
-            const text = await element.getText();
-            if (text === 'NEXT' || text === 'Next') {
-              await element.click();
-              return true;
-            }
-          }
-          return false;
-        } catch (e) {
-          console.log(chalk.yellow('Element search failed'));
-          return false;
-        }
-      }
+    const nextButtonSelectors = [
+      // This specific selector matches the button in your UI
+      'android=new UiSelector().className("android.widget.Button").text("NEXT")',
+      // Alternative selectors as fallbacks
+      'android=new UiSelector().text("NEXT")',
+      'android=new UiSelector().className("android.widget.Button").instance(0)',
+      'android=new UiSelector().className("android.widget.Button").bounds("783,1983,1025,2115")'
     ];
   
-    // Try each strategy
-    for (const strategy of strategies) {
+    for (const selector of nextButtonSelectors) {
       try {
-        if (await strategy()) {
-          console.log(chalk.green('✅ Successfully clicked Next button'));
+        const nextButton = await driver.$(selector);
+        if (await nextButton.isDisplayed()) {
+          await nextButton.click();
+          console.log(chalk.green('✅ Clicked Next button'));
           return true;
         }
       } catch (e) {
-        continue;
+        console.log(chalk.yellow(`Next button selector failed: ${selector}`));
       }
     }
   
-    console.log(chalk.red('❌ All Next button strategies failed'));
-    return false;
+    // If we couldn't find the button with specific selectors, try clicking by coordinates
+    try {
+      // These coordinates match the button's location in your UI
+      await driver.touchAction([
+        { action: 'tap', x: 904, y: 2049 }  // Center of the NEXT button
+      ]);
+      console.log(chalk.green('✅ Clicked Next button by coordinates'));
+      return true;
+    } catch (e) {
+      console.log(chalk.red('Failed to click Next button:', e.message));
+      return false;
+    }
   }
 
   console.log(chalk.blue('🔑 Logging into Gmail app...'));
