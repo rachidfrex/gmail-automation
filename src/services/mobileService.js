@@ -100,6 +100,42 @@ async function setupMobileAutomation() {
 }
 
 async function loginToGmail(driver, email, password) {
+  // Helper functions
+  async function logClickableElements(driver) {
+    const source = await driver.getPageSource();
+    console.log(chalk.yellow('Current page elements:', source));
+  }
+
+  async function clickButton(driver, options) {
+    const { text, resourceId, className, description } = options;
+    const selectors = [
+      text && `android=new UiSelector().text("${text}")`,
+      resourceId && `android=new UiSelector().resourceId("${resourceId}")`,
+      className && `android=new UiSelector().className("${className}")`,
+      description && `android=new UiSelector().description("${description}")`,
+      text && `android=new UiSelector().textContains("${text}")`,
+      text && `android=new UiSelector().className("android.widget.Button").text("${text}")`,
+      text && `android=new UiSelector().className("android.widget.Button").textContains("${text}")`,
+    ].filter(Boolean);
+
+    console.log(chalk.blue(`Trying to click button with options:`, options));
+
+    for (const selector of selectors) {
+      try {
+        const element = await driver.$(selector);
+        if (await element.isDisplayed()) {
+          console.log(chalk.green(`Found clickable element with selector: ${selector}`));
+          await element.click();
+          console.log(chalk.green(`✅ Successfully clicked: ${selector}`));
+          return true;
+        }
+      } catch (e) {
+        console.log(chalk.yellow(`Selector failed: ${selector}`));
+      }
+    }
+    return false;
+  }
+
   console.log(chalk.blue('🔑 Logging into Gmail app...'));
   try {
     await driver.pause(5000);
@@ -345,6 +381,49 @@ async function loginToGmail(driver, email, password) {
     } catch (e) {
       console.error(chalk.red('Failed during Google account setup:', e.message));
       throw e;
+    }
+
+    // After entering email, try to click Next with improved logic
+    try {
+      // Log current screen state
+      await logClickableElements(driver);
+
+      // First, try to find and click the exact "Next" button
+      const nextClicked = await clickButton(driver, {
+        text: "Next",
+        className: "android.widget.Button",
+        description: "Next"
+      });
+
+      if (!nextClicked) {
+        console.log(chalk.yellow('Could not find primary Next button, trying alternatives...'));
+        
+        // Try alternative buttons in order of priority
+        const alternativeButtons = [
+          { text: "Next", className: "android.widget.Button" },
+          { text: "Continue", className: "android.widget.Button" },
+          { resourceId: "identifierNext" },
+          { resourceId: "next" },
+          { text: "NEXT" }
+        ];
+
+        for (const buttonOptions of alternativeButtons) {
+          if (await clickButton(driver, buttonOptions)) {
+            console.log(chalk.green('✅ Clicked alternative Next button'));
+            break;
+          }
+        }
+      }
+
+      // Wait after clicking
+      await driver.pause(3000);
+
+    } catch (error) {
+      console.error(chalk.red('Failed to click Next:', error.message));
+      // Save debug info
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      await driver.saveScreenshot(path.join(OUTPUT_DIR.screenshots, `next_button_error_${timestamp}.png`));
+      throw error;
     }
 
   } catch (error) {
