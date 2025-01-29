@@ -4,6 +4,11 @@ const chalk = require('chalk');
 const path = require('path');
 const { exec } = require('child_process');
 
+const OUTPUT_DIR = {
+  screenshots: path.join(__dirname, '../../output/screenshots'),
+  logs: path.join(__dirname, '../../output/logs')
+};
+
 function validateEnvironment() {
   const required = {
     ANDROID_HOME: process.env.ANDROID_HOME,
@@ -99,137 +104,269 @@ async function loginToGmail(driver, email, password) {
   try {
     await driver.pause(5000);
 
-    // Get and log page source for debugging
-    const initialSource = await driver.getPageSource();
-    await fs.writeFile('initial_source.xml', initialSource);
-    console.log(chalk.yellow('Initial page source saved to initial_source.xml'));
+    // Get current activity for debugging
+    const currentActivity = await driver.getCurrentActivity();
+    console.log(chalk.yellow('Current activity:', currentActivity));
 
-    // Try multiple selector strategies for the "Got it" button
-    const gotItSelectors = [
-      'android=new UiSelector().resourceId("welcome_tour_got_it")',
-      'android=new UiSelector().resourceId("com.google.android.gm:id/welcome_tour_got_it")',
-      'android=new UiSelector().text("GOT IT")',
-      'android=new UiSelector().text("Got it")',
-      'android=new UiSelector().textContains("Got")',
-      '//android.widget.Button[@resource-id="com.google.android.gm:id/welcome_tour_got_it"]',
-      '//android.widget.Button[contains(@text, "Got")]'
+    // Click "GOT IT" button
+    const gotItSelector = 'android=new UiSelector().resourceId("com.google.android.gm:id/welcome_tour_got_it")';
+    try {
+      const gotItButton = await driver.$(gotItSelector);
+      if (await gotItButton.isDisplayed()) {
+        await gotItButton.click();
+        console.log(chalk.green('✅ Clicked Got It button'));
+        await driver.pause(3000);
+      }
+    } catch (e) {
+      console.log(chalk.yellow('Got It button not found'));
+    }
+
+    // Click "Add an email address"
+    const addEmailSelector = 'android=new UiSelector().resourceId("com.google.android.gm:id/setup_addresses_add_another")';
+    try {
+      const addEmailButton = await driver.$(addEmailSelector);
+      if (await addEmailButton.isDisplayed()) {
+        await addEmailButton.click();
+        console.log(chalk.green('✅ Clicked Add email address'));
+        await driver.pause(3000);
+      }
+    } catch (e) {
+      console.log(chalk.yellow('Add email button not found'));
+    }
+
+    // Click Google account option
+    const googleAccountSelectors = [
+      'android=new UiSelector().resourceId("com.google.android.gm:id/account_setup_item").index(0)',
+      'android=new UiSelector().text("Google")',
+      'android=new UiSelector().resourceId("com.google.android.gm:id/account_setup_label").text("Google")'
     ];
 
-    // Try each selector with verification
-    for (const selector of gotItSelectors) {
+    for (const selector of googleAccountSelectors) {
       try {
-        console.log(chalk.blue(`Trying selector: ${selector}`));
-        const element = await driver.$(selector);
-        if (await element.isDisplayed()) {
-          console.log(chalk.green(`Found "Got it" button with selector: ${selector}`));
-          await element.click();
+        console.log(chalk.blue(`Trying to find Google option with selector: ${selector}`));
+        const googleOption = await driver.$(selector);
+        if (await googleOption.isDisplayed()) {
+          await googleOption.click();
+          console.log(chalk.green('✅ Clicked Google account option'));
           await driver.pause(3000);
-          
-          // Take screenshot after clicking
-          await driver.saveScreenshot('./after_got_it_click.png');
-          console.log(chalk.green('Screenshot saved after clicking "Got it"'));
-          
-          // Get new page source after clicking
-          const afterClickSource = await driver.getPageSource();
-          await fs.writeFile('after_got_it_source.xml', afterClickSource);
-          console.log(chalk.yellow('Page source after "Got it" saved'));
-          
           break;
         }
       } catch (e) {
-        console.log(chalk.yellow(`Selector ${selector} failed:`, e.message));
+        console.log(chalk.yellow(`Google option not found with selector: ${selector}`));
       }
     }
 
-    // Try to find the Add Account button with multiple strategies
-    const addAccountSelectors = [
-      'android=new UiSelector().resourceId("add_account_button")',
-      'android=new UiSelector().resourceId("com.google.android.gm:id/setup_addresses_add_another")',
-      'android=new UiSelector().text("Add an email address")',
-      'android=new UiSelector().text("Add another account")',
-      'android=new UiSelector().textContains("Add")',
-      '//android.widget.Button[contains(@text, "Add")]',
-      '//android.widget.TextView[contains(@text, "Add")]'
-    ];
+    // Now we should be on the Google sign-in page
+    // Wait for the web view to load
+    await driver.pause(5000);
 
-    for (const selector of addAccountSelectors) {
-      try {
-        console.log(chalk.blue(`Trying Add Account selector: ${selector}`));
-        const element = await driver.$(selector);
-        if (await element.isDisplayed()) {
-          console.log(chalk.green(`Found Add Account button with selector: ${selector}`));
-          await element.click();
-          await driver.pause(3000);
-          
-          await driver.saveScreenshot('./after_add_account_click.png');
-          const newSource = await driver.getPageSource();
-          await fs.writeFile('after_add_account_source.xml', newSource);
-          break;
-        }
-      } catch (e) {
-        console.log(chalk.yellow(`Add Account selector ${selector} failed:`, e.message));
-      }
-    }
-
-    // Handle email input with retry
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        console.log(chalk.blue('Attempting to enter email...'));
-        
-        // Try different email input selectors
-        const emailSelectors = [
-          'android=new UiSelector().className("android.widget.EditText")',
-          'android=new UiSelector().resourceId("identifierId")',
-          'android=new UiSelector().text("Enter your email")'
-        ];
-
-        for (const selector of emailSelectors) {
-          try {
-            const emailInput = await driver.$(selector);
-            if (await emailInput.isDisplayed()) {
-              await emailInput.setValue(email);
-              console.log(chalk.green('✅ Entered email'));
-              
-              // Try to find and click Next button
-              const nextButton = await driver.$('android=new UiSelector().text("Next")');
-              if (await nextButton.isDisplayed()) {
-                await nextButton.click();
-                console.log(chalk.green('✅ Clicked Next'));
-                await driver.pause(3000);
-                break;
-              }
-            }
-          } catch (e) {
-            console.log(chalk.yellow(`Email selector ${selector} failed`));
+    // New email input handling
+    try {
+      console.log(chalk.blue('Attempting to enter email...'));
+      
+      // Wait for the WebView to load
+      await driver.pause(5000);
+  
+      // Get current context
+      const currentContext = await driver.getContext();
+      console.log(chalk.yellow('Current context:', currentContext));
+  
+      // Try multiple selectors for email input
+      const emailSelectors = [
+        'android=new UiSelector().className("android.widget.EditText").instance(0)',
+        'android=new UiSelector().resourceId("identifierId")',
+        'android=new UiSelector().textContains("Enter")',
+        'android=new UiSelector().className("android.widget.EditText").clickable(true)',
+        'android=new UiSelector().resourceId("com.google.android.gm:id/setup_email")'
+      ];
+  
+      let emailInput = null;
+      for (const selector of emailSelectors) {
+        try {
+          const element = await driver.$(selector);
+          if (await element.isDisplayed()) {
+            emailInput = element;
+            console.log(chalk.green(`Found email input with selector: ${selector}`));
+            break;
           }
+        } catch (e) {
+          console.log(chalk.yellow(`Email selector failed: ${selector}`));
         }
-        
-        break; // Break if successful
-      } catch (e) {
-        console.log(chalk.yellow(`Email entry attempt ${attempt + 1} failed`));
-        await driver.pause(2000);
       }
+  
+      if (!emailInput) {
+        throw new Error('Could not find email input field');
+      }
+  
+      // Clear existing text and enter email
+      await emailInput.clearValue();
+      await emailInput.setValue(email);
+      console.log(chalk.green('✅ Entered email'));
+      await driver.pause(2000);
+  
+      // Try to find Next button with multiple selectors
+      const nextButtonSelectors = [
+        'android=new UiSelector().text("Next")',
+        'android=new UiSelector().className("android.widget.Button").text("Next")',
+        'android=new UiSelector().resourceId("identifierNext")',
+        'android=new UiSelector().className("android.widget.Button").clickable(true)'
+      ];
+  
+      for (const selector of nextButtonSelectors) {
+        try {
+          const nextButton = await driver.$(selector);
+          if (await nextButton.isDisplayed()) {
+            await nextButton.click();
+            console.log(chalk.green('✅ Clicked Next button'));
+            await driver.pause(3000);
+            break;
+          }
+        } catch (e) {
+          console.log(chalk.yellow(`Next button selector failed: ${selector}`));
+        }
+      }
+  
+      // Save screenshot after email input
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      await driver.saveScreenshot(path.join(OUTPUT_DIR.screenshots, `after_email_${timestamp}.png`));
+      const source = await driver.getPageSource();
+      await fs.writeFile(
+        path.join(OUTPUT_DIR.logs, `page_source_${timestamp}.xml`),
+        source
+      );
+  
+    } catch (error) {
+      console.error(chalk.red('Failed to enter email:', error.message));
+      
+      // Save error state
+      const errorTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      await driver.saveScreenshot(path.join(OUTPUT_DIR.screenshots, `error_${errorTimestamp}.png`));
+      const errorSource = await driver.getPageSource();
+      await fs.writeFile(
+        path.join(OUTPUT_DIR.logs, `error_${errorTimestamp}.xml`),
+        errorSource
+      );
+      
+      throw error;
     }
 
     // Rest of the login logic...
-    // ...existing code...
+    // New code: Handle Google account setup screen
+    console.log(chalk.blue('Looking for Google account setup option...'));
+    const googleSetupSelector = 'android=new UiSelector().resourceId("com.google.android.gm:id/account_setup_label").text("Google")';
+    try {
+      console.log(chalk.blue('Waiting for Google option...'));
+      await driver.waitUntil(async () => {
+        const element = await driver.$(googleSetupSelector);
+        return element.isDisplayed();
+      }, {
+        timeout: 10000,
+        timeoutMsg: 'Google account option not found after 10s'
+      });
+
+      const googleOption = await driver.$(googleSetupSelector);
+      await googleOption.click();
+      console.log(chalk.green('✅ Selected Google account'));
+      await driver.pause(3000);
+
+      // New code: Handle email input with improved verification
+      console.log(chalk.blue('Looking for email input field...'));
+      const emailFieldSelector = 'android=new UiSelector().className("android.widget.EditText")';
+      await driver.waitUntil(async () => {
+        const element = await driver.$(emailFieldSelector);
+        return element.isDisplayed();
+      }, {
+        timeout: 10000,
+        timeoutMsg: 'Email input not found after 10s'
+      });
+
+      const emailField = await driver.$(emailFieldSelector);
+      await emailField.setValue(email);
+      console.log(chalk.green(`✅ Entered email: ${email}`));
+      
+      // New code: Handle Next button with verification
+      console.log(chalk.blue('Looking for Next button...'));
+      const nextButtonSelector = 'android=new UiSelector().text("Next")';
+      await driver.waitUntil(async () => {
+        const element = await driver.$(nextButtonSelector);
+        return element.isDisplayed();
+      }, {
+        timeout: 5000,
+        timeoutMsg: 'Next button not found after 5s'
+      });
+
+      const nextButton = await driver.$(nextButtonSelector);
+      await nextButton.click();
+      console.log(chalk.green('✅ Clicked Next button'));
+      await driver.pause(3000);
+
+      // New code: Handle password input
+      console.log(chalk.blue('Looking for password input...'));
+      const passwordSelector = 'android=new UiSelector().password(true)';
+      await driver.waitUntil(async () => {
+        const element = await driver.$(passwordSelector);
+        return element.isDisplayed();
+      }, {
+        timeout: 10000,
+        timeoutMsg: 'Password input not found after 10s'
+      });
+
+      const passwordField = await driver.$(passwordSelector);
+      await passwordField.setValue(password);
+      console.log(chalk.green('✅ Entered password'));
+
+      // Click Next after password
+      const nextAfterPassword = await driver.$('android=new UiSelector().text("Next")');
+      await nextAfterPassword.click();
+      console.log(chalk.green('✅ Clicked Next after password'));
+      await driver.pause(3000);
+
+      // New code: Handle additional prompts (I agree, etc.)
+      const finalPrompts = [
+        'android=new UiSelector().text("I agree")',
+        'android=new UiSelector().text("Accept")',
+        'android=new UiSelector().text("Done")'
+      ];
+
+      for (const promptSelector of finalPrompts) {
+        try {
+          const prompt = await driver.$(promptSelector);
+          if (await prompt.isDisplayed()) {
+            await prompt.click();
+            console.log(chalk.green(`✅ Handled prompt: ${promptSelector}`));
+            await driver.pause(2000);
+          }
+        } catch (e) {
+          console.log(chalk.yellow(`Prompt not found: ${promptSelector}`));
+        }
+      }
+
+      console.log(chalk.green('✅ Login sequence completed successfully'));
+    } catch (e) {
+      console.error(chalk.red('Failed during Google account setup:', e.message));
+      throw e;
+    }
 
   } catch (error) {
     console.error(chalk.red('❌ Login failed:', error.message));
+    // Save final state for debugging
     try {
-      // Save final state for debugging
       await driver.saveScreenshot('./error_state.png');
       const finalSource = await driver.getPageSource();
       await fs.writeFile('error_state_source.xml', finalSource);
       console.log(chalk.yellow('Error state info saved to error_state.png and error_state_source.xml'));
       
+      // Get current context
+      const context = await driver.getContext();
+      console.log(chalk.yellow('Current context:', context));
+      
+      // Get available contexts
+      const contexts = await driver.getContexts();
+      console.log(chalk.yellow('Available contexts:', contexts));
+      
       // Get current activity
       const currentActivity = await driver.getCurrentActivity();
       console.log(chalk.yellow('Current activity at error:', currentActivity));
-      
-      // Get current package
-      const currentPackage = await driver.getCurrentPackage();
-      console.log(chalk.yellow('Current package at error:', currentPackage));
     } catch (e) {
       console.log(chalk.red('Could not save debug info:', e.message));
     }
