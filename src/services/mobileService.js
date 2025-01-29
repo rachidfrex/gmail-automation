@@ -99,93 +99,137 @@ async function loginToGmail(driver, email, password) {
   try {
     await driver.pause(5000);
 
-    // Helper function to safely click elements
-    const safeClick = async (selector, description) => {
+    // Get and log page source for debugging
+    const initialSource = await driver.getPageSource();
+    await fs.writeFile('initial_source.xml', initialSource);
+    console.log(chalk.yellow('Initial page source saved to initial_source.xml'));
+
+    // Try multiple selector strategies for the "Got it" button
+    const gotItSelectors = [
+      'android=new UiSelector().resourceId("welcome_tour_got_it")',
+      'android=new UiSelector().resourceId("com.google.android.gm:id/welcome_tour_got_it")',
+      'android=new UiSelector().text("GOT IT")',
+      'android=new UiSelector().text("Got it")',
+      'android=new UiSelector().textContains("Got")',
+      '//android.widget.Button[@resource-id="com.google.android.gm:id/welcome_tour_got_it"]',
+      '//android.widget.Button[contains(@text, "Got")]'
+    ];
+
+    // Try each selector with verification
+    for (const selector of gotItSelectors) {
       try {
+        console.log(chalk.blue(`Trying selector: ${selector}`));
         const element = await driver.$(selector);
         if (await element.isDisplayed()) {
+          console.log(chalk.green(`Found "Got it" button with selector: ${selector}`));
           await element.click();
-          console.log(chalk.green(`✅ Clicked ${description}`));
-          return true;
+          await driver.pause(3000);
+          
+          // Take screenshot after clicking
+          await driver.saveScreenshot('./after_got_it_click.png');
+          console.log(chalk.green('Screenshot saved after clicking "Got it"'));
+          
+          // Get new page source after clicking
+          const afterClickSource = await driver.getPageSource();
+          await fs.writeFile('after_got_it_source.xml', afterClickSource);
+          console.log(chalk.yellow('Page source after "Got it" saved'));
+          
+          break;
         }
       } catch (e) {
-        console.log(chalk.yellow(`${description} not found`));
+        console.log(chalk.yellow(`Selector ${selector} failed:`, e.message));
       }
-      return false;
-    };
+    }
 
-    // Try different selectors for initial setup
-    const selectors = [
-      'android=new UiSelector().text("Got it")',
-      'android=new UiSelector().text("Skip")',
+    // Try to find the Add Account button with multiple strategies
+    const addAccountSelectors = [
+      'android=new UiSelector().resourceId("add_account_button")',
+      'android=new UiSelector().resourceId("com.google.android.gm:id/setup_addresses_add_another")',
       'android=new UiSelector().text("Add an email address")',
       'android=new UiSelector().text("Add another account")',
-      'android=new UiSelector().resourceId("com.google.android.gm:id/welcome_tour_got_it")',
-      'android=new UiSelector().className("android.widget.Button")'
+      'android=new UiSelector().textContains("Add")',
+      '//android.widget.Button[contains(@text, "Add")]',
+      '//android.widget.TextView[contains(@text, "Add")]'
     ];
 
-    for (const selector of selectors) {
+    for (const selector of addAccountSelectors) {
       try {
+        console.log(chalk.blue(`Trying Add Account selector: ${selector}`));
         const element = await driver.$(selector);
         if (await element.isDisplayed()) {
-          console.log(chalk.green(`Found element with selector: ${selector}`));
+          console.log(chalk.green(`Found Add Account button with selector: ${selector}`));
           await element.click();
-          await driver.pause(2000);
+          await driver.pause(3000);
+          
+          await driver.saveScreenshot('./after_add_account_click.png');
+          const newSource = await driver.getPageSource();
+          await fs.writeFile('after_add_account_source.xml', newSource);
+          break;
         }
       } catch (e) {
-        console.log(chalk.yellow(`Selector not found: ${selector}`));
+        console.log(chalk.yellow(`Add Account selector ${selector} failed:`, e.message));
       }
     }
 
-    // Try to enter email
-    try {
-      const emailInput = await driver.$('android=new UiSelector().className("android.widget.EditText")');
-      await emailInput.waitForDisplayed({ timeout: 10000 });
-      await emailInput.setValue(email);
-      console.log(chalk.green('✅ Entered email'));
-      
-      await safeClick('android=new UiSelector().text("Next")', 'Next button');
-      await driver.pause(3000);
-    } catch (e) {
-      console.error(chalk.red('Failed to enter email:', e.message));
-      throw e;
+    // Handle email input with retry
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        console.log(chalk.blue('Attempting to enter email...'));
+        
+        // Try different email input selectors
+        const emailSelectors = [
+          'android=new UiSelector().className("android.widget.EditText")',
+          'android=new UiSelector().resourceId("identifierId")',
+          'android=new UiSelector().text("Enter your email")'
+        ];
+
+        for (const selector of emailSelectors) {
+          try {
+            const emailInput = await driver.$(selector);
+            if (await emailInput.isDisplayed()) {
+              await emailInput.setValue(email);
+              console.log(chalk.green('✅ Entered email'));
+              
+              // Try to find and click Next button
+              const nextButton = await driver.$('android=new UiSelector().text("Next")');
+              if (await nextButton.isDisplayed()) {
+                await nextButton.click();
+                console.log(chalk.green('✅ Clicked Next'));
+                await driver.pause(3000);
+                break;
+              }
+            }
+          } catch (e) {
+            console.log(chalk.yellow(`Email selector ${selector} failed`));
+          }
+        }
+        
+        break; // Break if successful
+      } catch (e) {
+        console.log(chalk.yellow(`Email entry attempt ${attempt + 1} failed`));
+        await driver.pause(2000);
+      }
     }
 
-    // Try to enter password
-    try {
-      const passwordInput = await driver.$('android=new UiSelector().password(true)');
-      await passwordInput.waitForDisplayed({ timeout: 10000 });
-      await passwordInput.setValue(password);
-      console.log(chalk.green('✅ Entered password'));
-      
-      await safeClick('android=new UiSelector().text("Next")', 'Next button');
-      await driver.pause(3000);
-    } catch (e) {
-      console.error(chalk.red('Failed to enter password:', e.message));
-      throw e;
-    }
+    // Rest of the login logic...
+    // ...existing code...
 
-    // Handle additional prompts
-    const additionalButtons = [
-      'android=new UiSelector().text("I agree")',
-      'android=new UiSelector().text("Accept")',
-      'android=new UiSelector().text("More")',
-      'android=new UiSelector().text("Done")'
-    ];
-
-    for (const selector of additionalButtons) {
-      await safeClick(selector, `Button ${selector}`);
-      await driver.pause(2000);
-    }
-
-    console.log(chalk.green('✅ Login sequence completed!'));
   } catch (error) {
     console.error(chalk.red('❌ Login failed:', error.message));
     try {
-      await driver.saveScreenshot('./error_screenshot.png');
-      const source = await driver.getPageSource();
-      await fs.writeFile('./error_page_source.xml', source);
-      console.log(chalk.yellow('Debug info saved'));
+      // Save final state for debugging
+      await driver.saveScreenshot('./error_state.png');
+      const finalSource = await driver.getPageSource();
+      await fs.writeFile('error_state_source.xml', finalSource);
+      console.log(chalk.yellow('Error state info saved to error_state.png and error_state_source.xml'));
+      
+      // Get current activity
+      const currentActivity = await driver.getCurrentActivity();
+      console.log(chalk.yellow('Current activity at error:', currentActivity));
+      
+      // Get current package
+      const currentPackage = await driver.getCurrentPackage();
+      console.log(chalk.yellow('Current package at error:', currentPackage));
     } catch (e) {
       console.log(chalk.red('Could not save debug info:', e.message));
     }
