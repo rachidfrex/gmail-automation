@@ -7,7 +7,7 @@ async function automateGmail(config) {
   let browser, context, page;
 
   try {
-    ({ browser, context, page } = await setupBrowser());
+    ({ browser, context, page } = await setupBrowser(true));
     await login(page, config.email, config.password);
     await page.waitForTimeout(5000);
 
