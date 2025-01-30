@@ -96,15 +96,50 @@ An advanced automation tool for Gmail that supports both web browser (Playwright
 ## Usage
 
 ### Desktop Browser Automation
+To run the desktop browser automation:
 ```bash
-npm start
+npm run start
 ```
 
+The automation will prompt you for:
+- Gmail email
+- Password
+- Number of emails to process
+
 ### Mobile Automation
+1. Start the Appium server:
 ```bash
-./start.sh  # For Linux/Mac
-# or
-start.sh    # For Windows
+appium
+```
+
+2. Launch Android emulator from Android Studio:
+   - Open Android Studio
+   - Go to Device Manager
+   - Start your virtual device (wait until fully booted)
+
+3. Run the mobile automation:
+```bash
+npm run start:mobile
+```
+
+### Email Configuration
+Configure recipients and email content in `emailCompose.json`:
+```json
+{
+  "recipients": [
+    {
+      "email": "recipient1@example.com",
+      "subject": "Test Subject 1",
+      "body": "Test Body 1"
+    },
+    {
+      "email": "recipient2@example.com",
+      "subject": "Test Subject 2",
+      "body": "Test Body 2"
+    }
+    // Add as many recipients as needed
+  ]
+}
 ```
 
 ## Project Structure
