@@ -5,7 +5,7 @@ function createReadlineInterface() {
         input: process.stdin,
         output: process.stdout
     });
-}
+} 
 
 function question(rl, query) {
     return new Promise(resolve => rl.question(query, resolve));

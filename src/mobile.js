@@ -5,7 +5,7 @@ const chalk = require('chalk');
 
 async function automateMobileGmail(config) {
   let driver;
-
+ 
   try {
     driver = await setupMobileAutomation();
     await loginToGmail(driver, config.email, config.password);

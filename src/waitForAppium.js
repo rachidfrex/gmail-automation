@@ -4,7 +4,7 @@ function waitForAppium(port, timeout = 30000) {
   return new Promise((resolve, reject) => {
     const startTime = Date.now();
 
-    function tryConnect() {
+    function tryConnect() { 
       const socket = new net.Socket();
 
       socket.on('connect', () => {

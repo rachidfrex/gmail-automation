@@ -1,7 +1,7 @@
 const { chromium } = require('playwright-extra');
 const stealth = require('puppeteer-extra-plugin-stealth')();
 const randomUseragent = require('random-useragent');
-chromium.use(stealth);
+chromium.use(stealth); 
 
 async function setupBrowser(headless = true) {
   const userAgent = randomUseragent.getRandom();

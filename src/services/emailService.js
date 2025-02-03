@@ -3,7 +3,7 @@ const path = require('path');
 const chalk = require('chalk');
 
 const SELECTORS = {
-  mobile: {
+  mobile: { 
     composeButton: '[gh="cm"]',
     emailList: '.UI table tbody tr',
     checkbox: 'div[role="checkbox"]',

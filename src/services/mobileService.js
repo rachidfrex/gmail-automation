@@ -4,10 +4,18 @@ const chalk = require('chalk');
 const path = require('path');
 const { exec } = require('child_process');
 
+// Define output directories with proper error handling
 const OUTPUT_DIR = {
-  screenshots: path.join(__dirname, '../../output/screenshots'),
-  logs: path.join(__dirname, '../../output/logs')
+  screenshots: path.join(__dirname, '..', '..', 'output', 'screenshots'),
+  logs: path.join(__dirname, '..', '..', 'output', 'logs')
 };
+
+// Ensure output directories exist
+async function ensureDirectories() {
+  for (const dir of Object.values(OUTPUT_DIR)) {
+    await fs.mkdir(dir, { recursive: true });
+  }
+}
 
 function validateEnvironment() {
   const required = {
@@ -23,15 +31,16 @@ function validateEnvironment() {
     throw new Error(
       `Missing required environment variables: ${missing.join(', ')}\n` +
       'Please set them in your system environment variables:\n' +
-      '1. Open Windows System Properties > Advanced > Environment Variables\n' +
-      '2. Add ANDROID_HOME and ANDROID_SDK_ROOT pointing to your Android SDK location\n' +
-      '   (typically C:\\Users\\<YourUsername>\\AppData\\Local\\Android\\Sdk)\n' +
-      '3. Add %ANDROID_HOME%\\platform-tools to your Path variable'
+      '1. Open terminal and add to your ~/.bashrc or ~/.zshrc:\n' +
+      '   export ANDROID_HOME=$HOME/Android/Sdk\n' +
+      '   export ANDROID_SDK_ROOT=$HOME/Android/Sdk\n' +
+      '2. Add $ANDROID_HOME/platform-tools to your PATH\n' +
+      '3. Reload your shell or run: source ~/.bashrc (or ~/.zshrc)'
     );
   }
 }
 
-// Add chromedriverExecutableDir to capabilities
+// Update capabilities with safe chromedriver path
 const capabilities = {
   platformName: 'Android',
   'appium:automationName': 'UiAutomator2',
@@ -48,7 +57,9 @@ const capabilities = {
   'appium:intentCategory': 'android.intent.category.LAUNCHER',
   'appium:dontStopAppOnReset': false,
   'appium:enforceAppInstall': true,
-  'appium:chromedriverExecutableDir': path.join(process.env.ANDROID_HOME, 'chromedriver'),
+  'appium:chromedriverExecutableDir': process.env.ANDROID_HOME ? 
+    path.join(process.env.ANDROID_HOME, 'chromedriver') : 
+    path.join(process.env.HOME, 'Android', 'Sdk', 'chromedriver'),
   'appium:autoWebviewTimeout': 15000,
   'appium:webviewDevtoolsPort': 9222
 };
@@ -64,9 +75,10 @@ async function setupMobileAutomation() {
   console.log(chalk.blue('🚀 Setting up mobile automation...'));
   try {
     validateEnvironment();
+    await ensureDirectories();
     
-    const adbPath = path.join(process.env.ANDROID_HOME, 'platform-tools', 'adb.exe');
-    
+    // const adbPath = path.join(process.env.ANDROID_HOME, 'platform-tools', 'adb.exe');
+    const adbPath = 'adb';
     // Helper function for adb commands
     const executeAdb = async (command) => {
       return new Promise((resolve, reject) => {

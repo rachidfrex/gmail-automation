@@ -4,7 +4,7 @@ const { getLatestEmails, sendBatchEmails, markAsRead } = require('./services/ema
 const chalk = require('chalk');
 
 async function automateGmail(config) {
-  let browser, context, page;
+  let browser, context, page; 
 
   try {
     ({ browser, context, page } = await setupBrowser(true));
